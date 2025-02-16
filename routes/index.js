@@ -1,10 +1,10 @@
-const express = require('express');
-const controller = require('../controller/profile');
+import { Hono } from 'hono';
+import { getHealth, getProfile, verification } from '../controller/profile';
 
-const app = express();
+const app = new Hono();
 
-app.get('/health', controller.getHealth);
-app.get('/profile', controller.getProfile);
-app.post('/verification', controller.verification);
+app.get('/health', getHealth);
+app.get('/profile', getProfile);
+app.post('/verification', verification);
 
-module.exports = app
+export default app;

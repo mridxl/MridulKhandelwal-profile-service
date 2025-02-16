@@ -1,55 +1,57 @@
-const bcrypt = require('bcrypt');
-const dotenv = require('dotenv').config();
-const { sha512 } = require('js-sha512');
+import { sha512 } from 'js-sha512';
 
-const getHealth = (_,res) => {
-    res.send('Profile Service - Health Verified');
-}
-const getProfile = (req,res) => {
-    try{
-        var token = req.headers.authorization;
-        if(!token){return res.status(401).send('Unauthorized Access, Hash Not Found')}
-        var field = token.split(" ");
-        const hash = field[1];
-        if (bcrypt.compareSync(process.env.CHAIN_CODE, hash)){}
-        else {return res.status(401).send('Invalid Hash')}
-        res.send(JSON.stringify({
-            first_name: process.env.FIRST_NAME,
-            last_name: process.env.LAST_NAME,
-            email: process.env.EMAIL,
-            phone: process.env.PHONE,
-            yoe: parseInt(process.env.YOE),
-            company: process.env.COMPANY,
-            designation: process.env.DESIGNATION,
-            github_id: process.env.GITHUB_ID,
-            linkedin_id: process.env.LINKEDIN_ID,
-            twitter_id: process.env.TWITTER_ID,
-            instagram_id: process.env.INSTAGRAM_ID,
-            website: process.env.WEBSITE,
-        }));
-    } catch(err) {
-        console.error(`Error while getting profile data: ${err}`);
-        return res.status(500).send("Error getting profile data");
-    }
-}
-const verification = async (req,res) => {
-    if(!req.body.salt){
-        return res.status(404).send("Salt not found");
-    }
-    try{
-        const cryptingToken = req.body.salt;
-        const hash = sha512(cryptingToken + process.env.CHAIN_CODE);
-        res.send( JSON.stringify({
-            hash: hash
-        }));
-    } catch (err) {
-        console.error(`Error while verification: ${err}`);
-        return res.status(500).send("Error while encryption");
-    }
-}
+export const getHealth = (c) => {
+	return c.text('Profile Service - Health Verified');
+};
 
-module.exports = {
-    getHealth,
-    getProfile,
-    verification
-}
+export const getProfile = async (c) => {
+	try {
+		const token = c.req.header('Authorization');
+		if (!token) {
+			return c.text('Unauthorized Access, Hash Not Found', 401);
+		}
+
+		const field = token.split(' ');
+		const hash = field[1];
+
+		// Use SHA-512 instead of bcrypt (Cloudflare Workers don't support bcrypt)
+		const storedHash = sha512(c.env.CHAIN_CODE);
+
+		if (storedHash !== hash) {
+			return c.text('Invalid Hash', 401);
+		}
+
+		return c.json({
+			first_name: c.env.FIRST_NAME,
+			last_name: c.env.LAST_NAME,
+			email: c.env.EMAIL,
+			phone: c.env.PHONE,
+			yoe: parseInt(c.env.YOE),
+			company: c.env.COMPANY,
+			designation: c.env.DESIGNATION,
+			github_id: c.env.GITHUB_ID,
+			linkedin_id: c.env.LINKEDIN_ID,
+			twitter_id: c.env.TWITTER_ID,
+			instagram_id: c.env.INSTAGRAM_ID,
+			website: c.env.WEBSITE,
+		});
+	} catch (err) {
+		console.error(`Error while getting profile data: ${err}`);
+		return c.text('Error getting profile data', 500);
+	}
+};
+
+export const verification = async (c) => {
+	try {
+		const body = await c.req.json();
+		if (!body.salt) {
+			return c.text('Salt not found', 404);
+		}
+
+		const hash = sha512(body.salt + c.env.CHAIN_CODE);
+		return c.json({ hash });
+	} catch (err) {
+		console.error(`Error while verification: ${err}`);
+		return c.text('Error while encryption', 500);
+	}
+};
